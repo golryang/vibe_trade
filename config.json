@@ -1,0 +1,50 @@
+{
+  "exchanges": [
+    {
+      "name": "binance",
+      "apiKey": "",
+      "secret": "",
+      "sandbox": true,
+      "rateLimit": 1200
+    },
+    {
+      "name": "bybit",
+      "apiKey": "",
+      "secret": "",
+      "sandbox": true,
+      "rateLimit": 600
+    }
+  ],
+  "bots": [
+    {
+      "id": "cross-venue-hedge-1",
+      "type": "CrossVenueHedge",
+      "name": "Cross-Venue Hedge Market Maker",
+      "enabled": false,
+      "exchanges": ["binance", "bybit"],
+      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "parameters": {
+        "minSpreadPercent": 0.1,
+        "maxPositionSize": 100,
+        "hedgeThreshold": 50,
+        "rebalanceInterval": 30000,
+        "exchanges": ["binance", "bybit"]
+      },
+      "riskLimits": {
+        "maxPosition": 1000,
+        "maxDrawdown": 0.05,
+        "dailyLossLimit": 500
+      }
+    }
+  ],
+  "system": {
+    "logLevel": "info",
+    "port": 3000,
+    "environment": "development",
+    "maxConcurrentBots": 10
+  },
+  "database": {
+    "url": "postgresql://localhost:5432/vibe_trade",
+    "redis": "redis://localhost:6379"
+  }
+}
