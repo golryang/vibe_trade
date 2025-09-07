@@ -4,14 +4,16 @@
       "name": "binance",
       "apiKey": "",
       "secret": "",
-      "sandbox": true,
+      "passphrase": "",
+      "sandbox": false,
       "rateLimit": 1200
     },
     {
       "name": "bybit",
       "apiKey": "",
       "secret": "",
-      "sandbox": true,
+      "passphrase": "",
+      "sandbox": false,
       "rateLimit": 600
     }
   ],
@@ -21,24 +23,71 @@
       "type": "CrossVenueHedge",
       "name": "Cross-Venue Hedge Market Maker",
       "enabled": false,
-      "exchanges": ["binance", "bybit"],
-      "symbols": ["BTCUSDT", "ETHUSDT"],
+      "exchanges": [
+        "binance",
+        "bybit"
+      ],
+      "symbols": [
+        "BTCUSDT",
+        "ETHUSDT"
+      ],
       "parameters": {
         "minSpreadPercent": 0.1,
         "maxPositionSize": 100,
         "hedgeThreshold": 50,
         "rebalanceInterval": 30000,
-        "exchanges": ["binance", "bybit"]
+        "exchanges": [
+          "binance",
+          "bybit"
+        ]
       },
       "riskLimits": {
         "maxPosition": 1000,
         "maxDrawdown": 0.05,
         "dailyLossLimit": 500
       }
+    },
+    {
+      "id": "stoikov",
+      "type": "StoikovBot",
+      "name": "stoikov-test",
+      "enabled": true,
+      "exchanges": [
+        "binance"
+      ],
+      "symbols": [
+        "BTCUSDT"
+      ],
+      "parameters": {
+        "gamma": 0.3,
+        "volatilityWindow": 30000,
+        "intensityWindow": 60000,
+        "maxInventoryPct": 5,
+        "topNDepth": 5,
+        "obiWeight": 0,
+        "micropriceBias": true,
+        "postOnlyOffset": 1,
+        "ttlMs": 800,
+        "repostMs": 200,
+        "ladderLevels": 2,
+        "alphaSizeRatio": 0.8,
+        "driftCutBps": 5,
+        "sessionDDLimitPct": 0.5,
+        "maxConsecutiveFails": 10,
+        "timezoneProfile": "global",
+        "volRegimeScaler": 0.5,
+        "exchange": "binance",
+        "symbol": "BTCUSDT"
+      },
+      "riskLimits": {
+        "maxPosition": 30,
+        "maxDrawdown": 0.05,
+        "dailyLossLimit": 50
+      }
     }
   ],
   "system": {
-    "logLevel": "info",
+    "logLevel": "debug",
     "port": 3000,
     "environment": "development",
     "maxConcurrentBots": 10

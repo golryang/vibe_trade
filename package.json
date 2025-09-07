@@ -9,16 +9,26 @@
     "start:cli": "node dist/index.js --cli",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "dev:cli": "ts-node-dev --respawn --transpile-only src/index.ts --cli",
+    "config:print": "ts-node-dev --transpile-only scripts/print-config.ts",
+    "test:balance": "ts-node-dev --transpile-only scripts/test-balance.ts",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["trading", "bot", "cryptocurrency", "market-making", "arbitrage"],
+  "keywords": [
+    "trading",
+    "bot",
+    "cryptocurrency",
+    "market-making",
+    "arbitrage"
+  ],
   "author": "VibeTrade",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^20.0.0",
+    "@types/inquirer": "^9.0.9",
     "@types/jest": "^29.0.0",
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "eslint": "^8.0.0",
@@ -28,15 +38,15 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "winston": "^3.10.0",
-    "dotenv": "^16.3.0",
     "axios": "^1.5.0",
-    "ws": "^8.14.0",
-    "redis": "^4.6.0",
-    "pg": "^8.11.0",
-    "inquirer": "^9.2.0",
-    "cli-table3": "^0.6.3",
+    "blessed": "^0.1.81",
     "chalk": "^4.1.2",
-    "blessed": "^0.1.81"
+    "cli-table3": "^0.6.3",
+    "dotenv": "^16.6.1",
+    "inquirer": "^9.2.0",
+    "pg": "^8.11.0",
+    "redis": "^4.6.0",
+    "winston": "^3.10.0",
+    "ws": "^8.14.0"
   }
 }

@@ -20,7 +20,7 @@ export interface AppConfig {
 
 export class ConfigManager {
   private static instance: ConfigManager;
-  private config: AppConfig;
+  private config!: AppConfig;
   private configPath: string;
   private logger: winston.Logger;
 
@@ -65,14 +65,14 @@ export class ConfigManager {
           name: 'binance',
           apiKey: process.env.BINANCE_API_KEY || '',
           secret: process.env.BINANCE_SECRET || '',
-          sandbox: process.env.NODE_ENV !== 'production',
+          sandbox: false,
           rateLimit: 1200
         },
         {
           name: 'bybit',
           apiKey: process.env.BYBIT_API_KEY || '',
           secret: process.env.BYBIT_SECRET || '',
-          sandbox: process.env.NODE_ENV !== 'production',
+          sandbox: false,
           rateLimit: 600
         }
       ],
@@ -149,27 +149,58 @@ export class ConfigManager {
       this.config.system.port = parseInt(process.env.PORT);
     }
 
-    // Update exchange credentials from environment
+    // Update exchange credentials from environment variables
     for (const exchange of this.config.exchanges) {
       const envPrefix = exchange.name.toUpperCase();
       
-      if (process.env[`${envPrefix}_API_KEY`]) {
-        exchange.apiKey = process.env[`${envPrefix}_API_KEY`];
+      const apiKeyEnv = process.env[`${envPrefix}_API_KEY`];
+      if (apiKeyEnv) {
+        exchange.apiKey = apiKeyEnv;
       }
       
-      if (process.env[`${envPrefix}_SECRET`]) {
-        exchange.secret = process.env[`${envPrefix}_SECRET`];
+      const secretEnv = process.env[`${envPrefix}_SECRET`];
+      if (secretEnv) {
+        exchange.secret = secretEnv;
       }
       
       if (process.env[`${envPrefix}_PASSPHRASE`]) {
         exchange.passphrase = process.env[`${envPrefix}_PASSPHRASE`];
       }
+
+      // Support reading credentials from files (e.g., Docker/K8s secrets)
+      try {
+        if (process.env[`${envPrefix}_API_KEY_FILE`]) {
+          const keyPath = process.env[`${envPrefix}_API_KEY_FILE`] as string;
+          exchange.apiKey = readFileSync(keyPath, 'utf-8').trim();
+        }
+        if (process.env[`${envPrefix}_SECRET_FILE`]) {
+          const secretPath = process.env[`${envPrefix}_SECRET_FILE`] as string;
+          exchange.secret = readFileSync(secretPath, 'utf-8').trim();
+        }
+      } catch (e) {
+        this.logger.warn(`Failed to read credential file for ${exchange.name}: ${e}`);
+      }
+      // Always use mainnet in this deployment
+      exchange.sandbox = false;
     }
   }
 
   public saveConfig(): void {
     try {
-      const configData = JSON.stringify(this.config, null, 2);
+      // Never persist secrets to disk
+      const safeConfig: AppConfig = {
+        ...this.config,
+        exchanges: this.config.exchanges.map(ex => ({
+          name: ex.name,
+          apiKey: '',
+          secret: '',
+          passphrase: '',
+          sandbox: ex.sandbox,
+          rateLimit: ex.rateLimit
+        }))
+      } as AppConfig;
+
+      const configData = JSON.stringify(safeConfig, null, 2);
       writeFileSync(this.configPath, configData, 'utf-8');
       this.logger.info(`Configuration saved to ${this.configPath}`);
     } catch (error) {

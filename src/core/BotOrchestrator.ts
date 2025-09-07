@@ -110,6 +110,11 @@ export class BotOrchestrator {
     return bot ? bot.getMetrics() : null;
   }
 
+  // Expose bot instance for callers that need to check existence without adding
+  getBot(botId: string) {
+    return this.bots.get(botId);
+  }
+
   getAllBots(): BotConfig[] {
     return Array.from(this.bots.values()).map(bot => bot.getConfig());
   }
@@ -141,7 +146,7 @@ export class BotOrchestrator {
     this.logger.error('System error:', data.error, { context: data.context });
   }
 
-  private async gracefulShutdown(): void {
+  private async gracefulShutdown(): Promise<void> {
     this.logger.info('Received shutdown signal, stopping all bots...');
     
     try {

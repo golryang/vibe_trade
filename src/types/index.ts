@@ -11,10 +11,11 @@ export interface MarketData {
 
 export interface OrderBook {
   symbol: string;
-  exchange: string;
+  exchange?: string;
   bids: [number, number][];
   asks: [number, number][];
   timestamp: number;
+  sequence?: number;
 }
 
 export interface Order {

@@ -33,7 +33,7 @@ export abstract class BaseExchange extends EventEmitter {
   abstract getPositions(): Promise<Position[]>;
   abstract getOrderBook(symbol: string): Promise<OrderBook>;
 
-  protected checkRateLimit(): void {
+  protected async checkRateLimit(url?: string): Promise<void> {
     const now = Date.now();
     
     if (now > this.rateLimitResetTime) {

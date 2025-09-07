@@ -1,5 +1,6 @@
 import { BaseBot } from '../core/BaseBot';
 import { CrossVenueHedgeBot } from '../bots/CrossVenueHedgeBot';
+import { StoikovBot } from '../bots/StoikovBot';
 import { BaseExchange } from '../exchanges/BaseExchange';
 import { BotConfig } from '../types';
 import { Logger } from '../core/Logger';
@@ -23,7 +24,19 @@ export class BotFactory {
         
         return new CrossVenueHedgeBot(config as any, botExchanges);
 
-      // Add more bot types here as they are implemented
+      case 'StoikovBot':
+        // Single exchange bot
+        const stoikovExchange = exchanges.find(ex => 
+          config.exchanges.includes(ex.getName())
+        );
+        
+        if (!stoikovExchange) {
+          throw new Error(`StoikovBot requires exactly 1 exchange from: ${config.exchanges.join(', ')}`);
+        }
+        
+        return new StoikovBot(config as any, stoikovExchange);
+
+      // Add more bot types here as they are implemented  
       case 'SimpleMarketMaker':
         throw new Error('SimpleMarketMaker bot not implemented yet');
       
@@ -41,6 +54,7 @@ export class BotFactory {
   static getSupportedBotTypes(): string[] {
     return [
       'CrossVenueHedge',
+      'StoikovBot',
       // 'SimpleMarketMaker',
       // 'ArbitrageBot',
       // 'GridBot'
@@ -50,6 +64,7 @@ export class BotFactory {
   static getBotTypeDescription(type: string): string {
     const descriptions: Record<string, string> = {
       'CrossVenueHedge': 'Cross-Venue Hedge Market Making - 여러 거래소 간 차익거래 및 헤징',
+      'StoikovBot': 'Single-Venue Risk-Averse Stoikov - 고급 단일 거래소 마켓메이킹 (무헷지)',
       'SimpleMarketMaker': '단순 마켓메이킹 - 단일 거래소에서 호가 제공',
       'ArbitrageBot': '차익거래 봇 - 거래소 간 가격 차이 이용',
       'GridBot': '그리드 봇 - 격자형 매매 전략'
@@ -129,6 +144,65 @@ export class BotFactory {
       }
     }
 
+    if (config.type === 'StoikovBot') {
+      if (config.exchanges.length !== 1) {
+        errors.push('StoikovBot은 정확히 1개의 거래소가 필요합니다');
+      }
+
+      if (config.symbols.length !== 1) {
+        errors.push('StoikovBot은 정확히 1개의 심볼이 필요합니다');
+      }
+
+      const params = config.parameters;
+      if (!params) {
+        errors.push('StoikovBot은 파라미터가 필요합니다');
+      } else {
+        // Core Stoikov parameters
+        if (typeof params.gamma !== 'number' || params.gamma <= 0 || params.gamma > 5) {
+          errors.push('gamma는 0보다 크고 5보다 작은 숫자여야 합니다');
+        }
+
+        if (typeof params.volatilityWindow !== 'number' || params.volatilityWindow < 1000 || params.volatilityWindow > 600000) {
+          errors.push('변동성 윈도우는 1초-10분 사이여야 합니다');
+        }
+
+        if (typeof params.maxInventoryPct !== 'number' || params.maxInventoryPct <= 0 || params.maxInventoryPct > 50) {
+          errors.push('최대 인벤토리는 0-50% 사이여야 합니다');
+        }
+
+        // Execution parameters
+        if (typeof params.ttlMs !== 'number' || params.ttlMs < 100 || params.ttlMs > 5000) {
+          errors.push('TTL은 100ms-5초 사이여야 합니다');
+        }
+
+        if (typeof params.repostMs !== 'number' || params.repostMs < 50 || params.repostMs > 1000) {
+          errors.push('리포스트 간격은 50ms-1초 사이여야 합니다');
+        }
+
+        if (typeof params.ladderLevels !== 'number' || params.ladderLevels < 1 || params.ladderLevels > 5) {
+          errors.push('래더 레벨은 1-5 사이여야 합니다');
+        }
+
+        // Risk parameters
+        if (typeof params.driftCutBps !== 'number' || params.driftCutBps <= 0) {
+          errors.push('드리프트 컷은 0보다 큰 숫자여야 합니다');
+        }
+
+        if (typeof params.sessionDDLimitPct !== 'number' || params.sessionDDLimitPct <= 0 || params.sessionDDLimitPct > 10) {
+          errors.push('세션 DD 한도는 0-10% 사이여야 합니다');
+        }
+
+        // Symbol validation
+        if (!params.symbol || typeof params.symbol !== 'string') {
+          errors.push('심볼이 필요합니다');
+        }
+
+        if (!params.exchange || typeof params.exchange !== 'string') {
+          errors.push('거래소가 필요합니다');
+        }
+      }
+    }
+
     return errors;
   }
 
@@ -152,6 +226,50 @@ export class BotFactory {
             hedgeThreshold: 50,
             rebalanceInterval: 30000,
             exchanges: []
+          },
+          riskLimits: {
+            maxPosition: 1000,
+            maxDrawdown: 0.05,
+            dailyLossLimit: 500
+          }
+        };
+
+      case 'StoikovBot':
+        return {
+          ...baseConfig,
+          exchanges: [],
+          symbols: [],
+          parameters: {
+            // Core Stoikov parameters
+            gamma: 0.6,
+            volatilityWindow: 30000, // 30 seconds
+            intensityWindow: 60000,  // 60 seconds
+            maxInventoryPct: 5,      // 5% of NAV
+            
+            // Market data parameters
+            topNDepth: 5,
+            obiWeight: 0,
+            micropriceBias: true,
+            
+            // Execution parameters
+            postOnlyOffset: 1,       // 1 tick
+            ttlMs: 800,             // 800ms
+            repostMs: 200,          // 200ms
+            ladderLevels: 2,        // 2 levels
+            alphaSizeRatio: 0.8,    // 80%
+            
+            // Risk parameters
+            driftCutBps: 5,         // 5 basis points
+            sessionDDLimitPct: 0.5, // 0.5% NAV
+            maxConsecutiveFails: 10,
+            
+            // Regime parameters
+            timezoneProfile: 'global' as const,
+            volRegimeScaler: 0.5,
+            
+            // Exchange-specific (to be set by user)
+            exchange: '',
+            symbol: 'BTCUSDT'
           },
           riskLimits: {
             maxPosition: 1000,

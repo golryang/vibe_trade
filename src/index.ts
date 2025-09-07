@@ -4,7 +4,8 @@ import { ConfigManager } from './services/ConfigManager';
 import { MetricsCollector } from './services/MetricsCollector';
 import { HealthMonitor } from './services/HealthMonitor';
 import { Logger } from './core/Logger';
-import { CrossVenueHedgeBot } from './bots/CrossVenueHedgeBot';
+import { ExchangeFactory } from './exchanges/ExchangeFactory';
+import { BotFactory } from './cli/BotFactory';
 import chalk from 'chalk';
 
 function parseArguments(): { mode: 'daemon' | 'cli' } {
@@ -29,21 +30,18 @@ async function startDaemon(): Promise<void> {
     const config = configManager.getConfig();
     logger.info(`Loaded configuration with ${config.bots.length} bot(s) and ${config.exchanges.length} exchange(s)`);
 
-    // Initialize bots from configuration
+    // Initialize bots from configuration (generic)
     for (const botConfig of config.bots) {
       try {
-        if (botConfig.type === 'CrossVenueHedge') {
-          // For now, we'll create a mock exchange array
-          // In a real implementation, you'd initialize actual exchange connectors
-          const exchanges: any[] = []; // TODO: Initialize actual exchanges
-          
-          const bot = new CrossVenueHedgeBot(botConfig as any, exchanges);
-          await orchestrator.addBot(bot);
-          
-          logger.info(`Added ${botConfig.type} bot: ${botConfig.id}`);
-        } else {
-          logger.warn(`Unknown bot type: ${botConfig.type} for bot ${botConfig.id}`);
-        }
+        const exchanges = await Promise.all(
+          config.exchanges
+            .filter(ex => botConfig.exchanges.includes(ex.name))
+            .map(ex => ExchangeFactory.createExchange(ex))
+        );
+
+        const bot = await BotFactory.createBot(botConfig as any, exchanges as any);
+        await orchestrator.addBot(bot);
+        logger.info(`Added ${botConfig.type} bot: ${botConfig.id}`);
       } catch (error) {
         logger.error(`Failed to initialize bot ${botConfig.id}:`, error);
       }
@@ -122,16 +120,18 @@ async function startCLI(): Promise<void> {
   const config = configManager.getConfig();
   console.log(chalk.green(`✓ 설정 로드 완료: ${config.bots.length}개 봇, ${config.exchanges.length}개 거래소`));
 
-  // Initialize existing bots from configuration
+  // Initialize existing bots from configuration (generic)
   let initializedBots = 0;
   for (const botConfig of config.bots) {
     try {
-      if (botConfig.type === 'CrossVenueHedge') {
-        const exchanges: any[] = [];
-        const bot = new CrossVenueHedgeBot(botConfig as any, exchanges);
-        await orchestrator.addBot(bot);
-        initializedBots++;
-      }
+      const exchanges = await Promise.all(
+        config.exchanges
+          .filter(ex => botConfig.exchanges.includes(ex.name))
+          .map(ex => ExchangeFactory.createExchange(ex))
+      );
+      const bot = await BotFactory.createBot(botConfig as any, exchanges as any);
+      await orchestrator.addBot(bot);
+      initializedBots++;
     } catch (error) {
       console.log(chalk.yellow(`⚠️  봇 ${botConfig.id} 초기화 실패: ${error}`));
     }

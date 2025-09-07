@@ -145,7 +145,7 @@ Ctrl+C를 눌러 메인 메뉴로 돌아가기
 ### 환경 변수 설정
 ```bash
 # 로그 레벨 설정
-LOG_LEVEL=debug
+LOG_LEVEL=info
 
 # 최대 동시 봇 수
 MAX_CONCURRENT_BOTS=5
