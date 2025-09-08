@@ -56,15 +56,15 @@ interface BotState {
 
 export class StoikovBot extends BaseBot {
   private exchange: BaseExchange;
-  private stoikovEngine: StoikovEngine;
-  private marketProcessor: MarketDataProcessor;
-  private executionEngine: ExecutionEngine;
-  private riskManager: RiskManager;
+  private stoikovEngine!: StoikovEngine;
+  private marketProcessor!: MarketDataProcessor;
+  private executionEngine!: ExecutionEngine;
+  private riskManager!: RiskManager;
   
-  private botState: BotState;
+  private botState!: BotState;
   private lastInventoryUpdate: number = 0;
   private quoteUpdateInterval: NodeJS.Timeout | null = null;
-  private startTime: number = 0;
+  // Use BaseBot.startTime
 
   constructor(config: StoikovBotConfig, exchange: BaseExchange) {
     super(config);
@@ -78,7 +78,7 @@ export class StoikovBot extends BaseBot {
     
     try {
       this.initializeEngines(config);
-      this.setupEventListeners();
+      this.setupBotEventListeners();
     } catch (error) {
       this.logger.error('Failed to initialize StoikovBot engines:', error);
       throw error;
@@ -183,7 +183,7 @@ export class StoikovBot extends BaseBot {
     this.riskManager = new RiskManager(riskLimits);
   }
 
-  private setupEventListeners(): void {
+  private setupBotEventListeners(): void {
     // Market data events
     if (this.marketProcessor && typeof this.marketProcessor.on === 'function') {
       this.marketProcessor.on('marketStateUpdate', this.onMarketStateUpdate.bind(this));
@@ -218,7 +218,7 @@ export class StoikovBot extends BaseBot {
     if (this.exchange && typeof this.exchange.on === 'function') {
       this.exchange.on('orderBook', this.onOrderBook.bind(this));
       this.exchange.on('trade', this.onTrade.bind(this));
-      this.exchange.on('orderUpdate', this.onOrderUpdate.bind(this));
+      this.exchange.on('orderUpdate', this.onExchangeOrderUpdate.bind(this));
       this.exchange.on('error', this.onExchangeError.bind(this));
     }
   }
@@ -420,6 +420,14 @@ export class StoikovBot extends BaseBot {
       const symbol = (this.config as StoikovBotConfig).parameters.symbol;
       const price: number = orderRequest.price;
       const quoteSize: number = orderRequest.size;
+      if (!Number.isFinite(price) || price <= 0) {
+        this.logger.warn('Invalid price for order placement, skipping', { price, quoteSize });
+        return;
+      }
+      if (!Number.isFinite(quoteSize) || quoteSize <= 0) {
+        this.logger.warn('Invalid size for order placement, skipping', { price, quoteSize });
+        return;
+      }
       const baseQty = Math.max(Number((quoteSize / price).toFixed(6)), 0.000001);
 
       const order = await this.exchange.placeOrder({
@@ -527,14 +535,17 @@ export class StoikovBot extends BaseBot {
 
   // Exchange event handlers
   private onOrderBook(orderBook: any): void {
-    // Convert to our format and process
+    // Normalize entries to { price, size }
+    const bids = (orderBook.bids || []).map((b: any) => Array.isArray(b) ? { price: Number(b[0]), size: Number(b[1]) } : { price: Number(b.price), size: Number(b.size) });
+    const asks = (orderBook.asks || []).map((a: any) => Array.isArray(a) ? { price: Number(a[0]), size: Number(a[1]) } : { price: Number(a.price), size: Number(a.size) });
+
     const l2OrderBook = {
-      bids: orderBook.bids || [],
-      asks: orderBook.asks || [],
+      bids,
+      asks,
       sequence: orderBook.sequence || 0,
       timestamp: orderBook.timestamp || Date.now()
-    };
-    
+    } as any;
+
     this.marketProcessor.processOrderBook(l2OrderBook);
   }
 
@@ -549,7 +560,7 @@ export class StoikovBot extends BaseBot {
     this.marketProcessor.processTrade(processedTrade);
   }
 
-  private onOrderUpdate(orderUpdate: any): void {
+  private onExchangeOrderUpdate(orderUpdate: any): void {
     this.executionEngine.handleOrderUpdate(orderUpdate);
   }
 

@@ -30,7 +30,7 @@ export class Logger {
           statusText: err?.response?.statusText,
           method: err?.config?.method,
           url: err?.config?.url || err?.config?.baseURL,
-          data: err?.response?.data && typeof err.response.data === 'object' 
+          data: err?.response?.data && typeof err.response.data === 'object'
             ? { code: err.response.data.code, msg: truncate(String(err.response.data.msg || '')) }
             : undefined
         });
@@ -49,8 +49,39 @@ export class Logger {
             Object.assign(info, sanitizeAxios(info));
             info.message = truncate(String(info.message || ''));
           }
-          if (info.stack) info.stack = truncate(String(info.stack), 400);
+          // Drop bulky axios fields if present at root
+          delete (info as any).config;
+          delete (info as any).request;
+          delete (info as any).response;
+          if ((info as any).stack) (info as any).stack = truncate(String((info as any).stack), 400);
           return info;
+        });
+
+        const dropHeavy = winston.format((info) => {
+          delete (info as any).config;
+          delete (info as any).request;
+          delete (info as any).response;
+          return info;
+        });
+
+        const conciseConsole = winston.format.printf((info) => {
+          const ts = info.timestamp;
+          const lvl = info.level;
+          const msg = typeof info.message === 'string' ? info.message : JSON.stringify(info.message);
+          const parts: string[] = [];
+          const code = (info as any).code ?? (info as any).data?.code;
+          const status = (info as any).status;
+          const statusText = (info as any).statusText;
+          const apiMsg = (info as any).data?.msg;
+          const method = (info as any).method;
+          const url = (info as any).url;
+          if (code !== undefined) parts.push(`code=${code}`);
+          if (status !== undefined) parts.push(`status=${status}`);
+          if (statusText) parts.push(`statusText=${statusText}`);
+          if (apiMsg) parts.push(`msg=${apiMsg}`);
+          if (method) parts.push(`method=${String(method).toUpperCase()}`);
+          if (url) parts.push(`url=${url}`);
+          return `${ts} ${lvl}: ${msg}${parts.length ? ' ' + parts.join(' ') : ''}`;
         });
 
         Logger.instance = winston.createLogger({
@@ -59,26 +90,29 @@ export class Logger {
             winston.format.timestamp(),
             winston.format.errors({ stack: true }),
             errorSanitizer(),
-            winston.format.json(),
-            winston.format.colorize({ all: true })
+            dropHeavy(),
+            winston.format.json()
           ),
           defaultMeta: { service: 'vibe-trade' },
           transports: [
-            new winston.transports.File({ 
-              filename: 'logs/error.log', 
+            new winston.transports.File({
+              filename: 'logs/error.log',
               level: 'error',
               maxsize: 10485760, // 10MB
               maxFiles: 5
             }),
-            new winston.transports.File({ 
+            new winston.transports.File({
               filename: 'logs/combined.log',
               maxsize: 10485760, // 10MB
               maxFiles: 5
             }),
             new winston.transports.Console({
               format: winston.format.combine(
-                winston.format.colorize(),
-                winston.format.simple()
+                winston.format.timestamp(),
+                errorSanitizer(),
+                dropHeavy(),
+                winston.format.colorize({ all: true }),
+                conciseConsole
               )
             })
           ]

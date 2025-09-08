@@ -59,7 +59,7 @@
         "BTCUSDT"
       ],
       "parameters": {
-        "gamma": 0.3,
+        "gamma": 0.1,
         "volatilityWindow": 30000,
         "intensityWindow": 60000,
         "maxInventoryPct": 5,
@@ -67,9 +67,9 @@
         "obiWeight": 0,
         "micropriceBias": true,
         "postOnlyOffset": 1,
-        "ttlMs": 800,
-        "repostMs": 200,
-        "ladderLevels": 2,
+        "ttlMs": 1500,
+        "repostMs": 1500,
+        "ladderLevels": 1,
         "alphaSizeRatio": 0.8,
         "driftCutBps": 5,
         "sessionDDLimitPct": 0.5,
